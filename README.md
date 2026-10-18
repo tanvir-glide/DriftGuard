@@ -4,7 +4,7 @@ DriftGuard is a lightweight background service that continuously monitors and en
 
 ## Status
 
-**Milestone 1 of 8 is complete.** DriftGuard currently parses a rulebook, validates it, and watches the files it references for changes. It does **not** yet check values or revert anything.
+**Goal 1 of 8 is complete.** DriftGuard currently parses a rulebook, validates it, and watches the files it references for changes. It does **NOT** check values or revert anything yet.
 
 - [x] Daemon structure, rulebook parsing, file monitoring
 - [ ] SSH config checking and reversion
