@@ -75,13 +75,27 @@ See [`configs/example.yaml`](configs/example.yaml) for a fuller example.
 ## Project layout
 
 ```
-cmd/driftguard/     Main binary
-internal/
-  config/           Rulebook parsing and validation
-  monitor/          Debounced file watching (fsnotify)
-  engine/           Resource and Drift types
-configs/            Example rulebooks
-testdata/           Test fixtures
+.
+├── cmd
+│   └── driftguard
+│       └── main.go
+├── configs                                 # Example rulebooks
+│   └── example.yaml
+├── internal
+│   ├── config                              # Rulebook parsing and validation
+│   │   ├── config_test.go
+│   │   └── config.go
+│   ├── engine                              # Resource and Drift types
+│   │   └── resource.go
+│   └── monitor                             # Debounced file watching (fsnotify)
+│       ├── monitor_test.go
+│       └── monitor.go
+├── testdata                                # Test fixtures
+│   └── valid.yaml
+├── go.mod
+├── go.sum
+├── LICENSE
+└── README.md
 ```
 
 Packages for reverting, audit logging, and rate limiting (`revert`, `logging`, `safety`) arrive with their milestones.
