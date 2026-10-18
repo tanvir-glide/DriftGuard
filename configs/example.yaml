@@ -1,0 +1,25 @@
+version: "1.0"
+resources:
+  - type: "ssh_config"
+    id: "sshd_config"
+    path: "/etc/ssh/sshd_config"
+    checks:
+      - parameter: "PermitRootLogin"
+        desired: "no"
+      - parameter: "PasswordAuthentication"
+        desired: "no"
+
+  - type: "port"
+    id: "ssh_port"
+    port: 22
+    protocol: "tcp"
+    desired_state: "listening"
+
+  - type: "firewall"
+    id: "iptables_rules"
+    backend: "iptables"
+    rules:
+      - chain: "INPUT"
+        protocol: "tcp"
+        port: 22
+        action: "ACCEPT"
