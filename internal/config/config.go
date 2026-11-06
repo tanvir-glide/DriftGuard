@@ -7,8 +7,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"sort"
+	"strings"
+	"unicode"
 
 	"gopkg.in/yaml.v3"
 )
@@ -23,13 +26,18 @@ const (
 	TypeFirewall  = "firewall"
 )
 
+// sshParameter matches a plain sshd keyword, anything else could smuggle
+// extra lines or directives into sshd_config
+var sshParameter = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9]*$`)
+
 // Rulebook is the top-level document describing the desired baseline
 type Rulebook struct {
 	Version   string     `yaml:"version"`
 	Resources []Resource `yaml:"resources"`
 }
 
-// Resource is a single baseline entry. Which fields apply depends on Type
+// Resource is a single baseline entry
+// Which fields apply depends on Type
 type Resource struct {
 	Type string `yaml:"type"`
 	ID   string `yaml:"id"`
@@ -212,10 +220,41 @@ func (r Resource) validateSSH() []error {
 		errs = append(errs, errors.New("at least one check is required"))
 	}
 
+	seen := make(map[string]struct{}, len(r.Checks))
+
 	for i, c := range r.Checks {
 		if c.Parameter == "" || c.Desired == "" {
 			errs = append(errs, fmt.Errorf("checks[%d]: parameter and desired are required", i))
+
+			continue
 		}
+
+		errs = append(errs, validateSSHCheck(i, c, seen)...)
+	}
+
+	return errs
+}
+
+func validateSSHCheck(i int, c SSHCheck, seen map[string]struct{}) []error {
+	var errs []error
+
+	key := strings.ToLower(c.Parameter)
+
+	switch {
+	case !sshParameter.MatchString(c.Parameter):
+		errs = append(errs, fmt.Errorf("checks[%d]: parameter %q is not a valid sshd keyword", i, c.Parameter))
+	case key == "match":
+		errs = append(errs, fmt.Errorf("checks[%d]: Match blocks cannot be guarded", i))
+	}
+
+	if _, dup := seen[key]; dup {
+		errs = append(errs, fmt.Errorf("checks[%d]: parameter %q is listed twice", i, c.Parameter))
+	}
+
+	seen[key] = struct{}{}
+
+	if strings.ContainsFunc(c.Desired, unicode.IsControl) {
+		errs = append(errs, fmt.Errorf("checks[%d]: desired must not contain control characters or newlines", i))
 	}
 
 	return errs

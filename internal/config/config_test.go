@@ -18,6 +18,8 @@ func TestParse(t *testing.T) {
         desired: "no"
 `
 
+	const sshHead = "version: \"1.0\"\nresources:\n  - type: \"ssh_config\"\n    id: \"a\"\n    path: \"/etc/ssh/sshd_config\"\n    checks:\n"
+
 	tests := []struct {
 		name    string
 		yaml    string
@@ -61,6 +63,26 @@ func TestParse(t *testing.T) {
 			name:    "ssh without checks",
 			yaml:    "version: \"1.0\"\nresources:\n  - type: \"ssh_config\"\n    id: \"a\"\n    path: \"/etc/ssh/sshd_config\"\n",
 			wantErr: "at least one check",
+		},
+		{
+			name:    "ssh parameter with injected newline",
+			yaml:    sshHead + `      - parameter: "A\nMatch all"` + "\n        desired: \"b\"\n",
+			wantErr: "not a valid sshd keyword",
+		},
+		{
+			name:    "ssh desired with newline",
+			yaml:    sshHead + `      - parameter: "A"` + "\n" + `        desired: "b\nPermitRootLogin yes"` + "\n",
+			wantErr: "control characters",
+		},
+		{
+			name:    "ssh Match parameter",
+			yaml:    sshHead + `      - parameter: "match"` + "\n        desired: \"all\"\n",
+			wantErr: "Match blocks",
+		},
+		{
+			name:    "ssh duplicate parameter",
+			yaml:    sshHead + `      - parameter: "A"` + "\n        desired: \"b\"\n" + `      - parameter: "a"` + "\n        desired: \"c\"\n",
+			wantErr: "listed twice",
 		},
 		{
 			name:    "port out of range",

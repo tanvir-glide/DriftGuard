@@ -34,3 +34,9 @@ type Drift struct {
 	Severity  string // CRITICAL, HIGH, MEDIUM
 	Timestamp time.Time
 }
+
+// Drifted reports whether d describes a real deviation
+// Check returns the zero Drift when current state matches desired state
+func (d Drift) Drifted() bool {
+	return d.Resource != ""
+}

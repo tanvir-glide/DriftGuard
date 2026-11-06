@@ -11,10 +11,12 @@ import (
 	"time"
 
 	"github.com/tanvir-glide/driftguard/internal/config"
+	"github.com/tanvir-glide/driftguard/internal/engine"
 	"github.com/tanvir-glide/driftguard/internal/monitor"
+	"github.com/tanvir-glide/driftguard/internal/resources"
 )
 
-const version = "0.1.0-m1"
+const version = "0.2.0-m2"
 
 func main() {
 	os.Exit(run())
@@ -56,6 +58,22 @@ func serve(logger *slog.Logger, rb *config.Rulebook, debounce time.Duration) int
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	registry := engine.NewRegistry(map[string]engine.Factory{
+		config.TypeSSHConfig: resources.NewSSHConfig,
+	})
+
+	built, skipped, err := registry.Build(rb)
+	if err != nil {
+		logger.Error("build resources", "error", err)
+
+		return 1
+	}
+
+	for _, r := range skipped {
+		logger.Warn("resource type not implemented yet, skipping", "id", r.ID, "type", r.Type)
+	}
+
+	rec := engine.NewReconciler(logger, rb, built)
 	paths := rb.WatchPaths()
 
 	w, err := monitor.New(paths, debounce)
@@ -70,7 +88,18 @@ func serve(logger *slog.Logger, rb *config.Rulebook, debounce time.Duration) int
 
 	go func() { runErr <- w.Run(ctx) }()
 
-	logger.Info("daemon started", "version", version, "resources", len(rb.Resources), "watching", paths)
+	recDone := make(chan struct{})
+
+	go func() {
+		defer close(recDone)
+
+		rec.Run(ctx)
+	}()
+
+	// Level-triggered: check everything once at startup, then on events
+	rec.EnqueueAll()
+
+	logger.Info("daemon started", "version", version, "resources", len(built), "watching", paths)
 
 	for ev := range w.Events() {
 		logger.Warn("change detected",
@@ -78,7 +107,13 @@ func serve(logger *slog.Logger, rb *config.Rulebook, debounce time.Duration) int
 			"op", ev.Op,
 			"resources", owners[ev.Path],
 		)
+
+		for _, id := range owners[ev.Path] {
+			rec.Enqueue(id)
+		}
 	}
+
+	<-recDone
 
 	err = <-runErr
 	if err != nil {

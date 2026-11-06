@@ -4,10 +4,10 @@ DriftGuard is a lightweight background service that continuously monitors and en
 
 ## Status
 
-**Goal 1 of 8 is complete.** DriftGuard currently parses a rulebook, validates it, and watches the files it references for changes. It does **NOT** check values or revert anything yet.
+**Goal 2 of 8 is complete.** DriftGuard parses and validates a rulebook, checks `ssh_config` resources at startup and on every change to the watched file, and logs drift. `ssh_config` revert is implemented and tested, but the daemon does **not** revert anything yet: modes and the safety layer arrive in M4. `port` and `firewall` entries are skipped with a warning until M3.
 
 - [x] Daemon structure, rulebook parsing, file monitoring
-- [ ] SSH config checking and reversion
+- [x] SSH config checking and reversion (check wired in; revert waits for M4 safety layer)
 - [ ] Port monitoring and firewall rule management
 - [ ] Modes, rate limiting, circuit breaker, periodic reconcile, audit logging
 - [ ] systemd integration, production hardening
@@ -18,7 +18,7 @@ DriftGuard is a lightweight background service that continuously monitors and en
 
 ## Quick start
 
-Requires Go 1.27.2 or newer (see `go.mod`).
+Requires the Go version in `go.mod`.
 
 ```sh
 go mod tidy
@@ -76,29 +76,21 @@ See [`configs/example.yaml`](configs/example.yaml) for a fuller example.
 
 ```
 .
-├── cmd
-│   └── driftguard
-│       └── main.go
-├── configs                                 # Example rulebooks
-│   └── example.yaml
+├── cmd/driftguard/main.go
+├── configs/example.yaml                    # Example rulebooks
 ├── internal
-│   ├── config                              # Rulebook parsing and validation
-│   │   ├── config_test.go
-│   │   └── config.go
-│   ├── engine                              # Resource and Drift types
-│   │   └── resource.go
-│   └── monitor                             # Debounced file watching (fsnotify)
-│       ├── monitor_test.go
-│       └── monitor.go
-├── testdata                                # Test fixtures
-│   └── valid.yaml
+│   ├── config                              # Rulebook parsing and validation
+│   ├── engine                              # Resource and Drift types, registry, reconciler
+│   ├── monitor                             # Debounced file watching (fsnotify)
+│   └── resources                           # Resource implementations (one file per type)
+│       ├── fsutil.go                       # Atomic file write
+│       └── ssh_config.go
+├── testdata/valid.yaml                     # Test fixtures
 ├── go.mod
-├── go.sum
-├── LICENSE
 └── README.md
 ```
 
-Packages for reverting, audit logging, and rate limiting (`revert`, `logging`, `safety`) arrive with their milestones.
+The safety layer (`engine/safety.go`) and the audit log (`internal/audit`) arrive with M4.
 
 ## Development
 
