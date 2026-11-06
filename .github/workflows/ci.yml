@@ -1,0 +1,39 @@
+name: CI
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+
+jobs:
+    build-and-test:
+        name: Go Build & Test
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v4
+
+            - name: Set up Go
+              uses: actions/setup-go@v5
+              with:
+                  go-version-file: './go.mod'
+
+            - name: Check Formatting
+              run: |
+                  unformatted=$(gofmt -l .)
+                  if [ -n "$unformatted" ]; then
+                    echo "The following files are not formatted with gofmt:"
+                    echo "$unformatted"
+                    exit 1
+                  fi
+
+            - name: Run Go Vet
+              run: go vet ./...
+
+            - name: Run Tests with Race Detector
+              run: go test -v -race ./...
+
+            - name: Build Binary
+              run: go build -v -o driftguard ./cmd/driftguard
